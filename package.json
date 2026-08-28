@@ -15,6 +15,7 @@
   },
   "private": true,
   "dependencies": {
-    "@clack/prompts": "^1.7.0"
+    "@clack/prompts": "^1.7.0",
+    "youtube-dl-exec": "^3.1.12"
   }
 }
