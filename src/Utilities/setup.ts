@@ -20,7 +20,7 @@ const start = (): Promise<IConfig> => {
             try {
                 const content = fs.readFileSync(configPath, { encoding: "utf-8" });
                 const parsedConfig = JSON.parse(content);
-                console.log(parsedConfig);
+                // console.log(parsedConfig);
                 resolve(parsedConfig);
                 return;
             } catch (e: any) {
@@ -35,6 +35,11 @@ const start = (): Promise<IConfig> => {
         const useDefaultConfigs = await confirm({
             message: "Do you want to use the default settings?",
         });
+
+        if (isCancel(useDefaultConfigs)) {
+            console.log("Operation cancelled by user.");
+            process.exit(0);
+        }
 
         if (useDefaultConfigs === true) {
             resolve(defaultConfig);
@@ -56,7 +61,6 @@ const start = (): Promise<IConfig> => {
 
         const numberOfChunks = await text({
             message: "Enter number of chunks to use",
-            placeholder: "8",
             initialValue: "8",
             validate: (value) => {
                 if (!value) return "Please enter a number.";
@@ -67,7 +71,7 @@ const start = (): Promise<IConfig> => {
         });
 
         if (isCancel(numberOfChunks)) {
-            console.log("Operation Cancelled By User.");
+            console.log("Operation cancelled by user.");
             process.exit(0);
         }
 

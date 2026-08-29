@@ -1,9 +1,8 @@
-import { config } from "node:process";
-import { IDownloader, ParDownloader, SeqDownloader } from "./downloaders.js";
-import { IConfig } from "./setup.js";
-import { getDirectYtUrl, isYouTubeUrl } from "./Websites/yt.js";
+import { IDownloader, ParDownloader, SeqDownloader } from "../Utilities/downloaders.js";
+import { IConfig } from "../Utilities/setup.js";
+import { getDirectYtUrl, isYouTubeUrl } from "../Websites/yt.js";
 import path from "node:path";
-import { randomInt } from "node:crypto";
+import cmdHandler from "./command-handler.js";
 
 function sanitizeFilename(name: string): string {
     return name.replace(/[<>:"/\\|?*]/g, "_").trim();
@@ -11,7 +10,7 @@ function sanitizeFilename(name: string): string {
 
 export class Engine {
     config: IConfig;
-    downloader?: IDownloader;
+    downloader: IDownloader | undefined = undefined;
 
     constructor(config: IConfig) {
         this.config = config;
@@ -41,22 +40,39 @@ export class Engine {
         });
     }
 
-    getDownloader(url: string, filepath?: string): Promise<IDownloader> {
+    async detectCustomFileName(link: string): Promise<string> {
+        const url = new URL(link);
+        const lastSlash = url.pathname.lastIndexOf("/");
+        const name = decodeURIComponent(url.pathname.substring(lastSlash + 1));
+
+        const answer = await cmdHandler.addQuestion({
+            question: `Detected file name: '${name}'. Use it? (Yes or No): `,
+            answer: "NONE",
+            resolve: () => {}
+        });
+
+        if (answer === "YES") return name;
+
+        //TODO: check content-decomposition header might contain file name
+
+        return `${Math.random() * 10000}.mp4`;
+    }
+
+    getDownloader(url: string, filename?: string): Promise<IDownloader> {
         return new Promise(async (resolve, reject) => {
             try {
-                let outPath =
-                    filepath ??
-                    path.join(this.config.defaultDistPath, `${randomInt(10000)}.mp4`);
+                const customFileName = filename
+                    ? sanitizeFilename(filename)
+                    : await this.detectCustomFileName(url);
+                let outPath = path.join(this.config.defaultDistPath, customFileName);
 
                 if (isYouTubeUrl(url)) {
-                    const { video, audio, title } = await getDirectYtUrl(url);
+                    const { audio, title } = await getDirectYtUrl(url);
 
-                    outPath =
-                        filepath ??
-                        path.join(
-                            this.config.defaultDistPath,
-                            `${sanitizeFilename(title)}.mp4`,
-                        );
+                    outPath = filename
+                        ? outPath
+                        : path.join(this.config.defaultDistPath, sanitizeFilename(title));
+
                     const parrallelStatus = await this.checkParrallelSupported(audio);
 
                     if (parrallelStatus.isSupported) {
@@ -68,10 +84,12 @@ export class Engine {
                                 this.config.totalChunks,
                             ),
                         );
+                        console.log("Added " + path.basename(outPath));
                         return;
                     }
 
                     resolve(new SeqDownloader(audio, outPath));
+                    console.log("Added " + path.basename(outPath));
                     return;
                 }
 
@@ -86,18 +104,21 @@ export class Engine {
                             this.config.totalChunks,
                         ),
                     );
+                    console.log("Added " + customFileName);
+                    return;
                 }
 
                 resolve(new SeqDownloader(url, outPath));
+                console.log("Added " + customFileName);
             } catch (e: any) {
                 reject(e);
             }
         });
     }
 
-    async setNewDownloader(url: string, filepath?: string) {
+    async addDownloader(url: string, filename?: string) {
         try {
-            this.downloader = await this.getDownloader(url, filepath);
+            this.downloader = await this.getDownloader(url, filename);
         } catch (e: any) {
             console.error(e);
         }
@@ -105,8 +126,12 @@ export class Engine {
 
     async startDownloading() {
         try {
+            if (!this.downloader) {
+                console.log("Downloader is not added yet.");
+                return;
+            }
             const result = await this.downloader?.download();
-            console.log(result);
+            console.log(result + '\n');
         } catch (e: any) {
             console.error(e);
         }

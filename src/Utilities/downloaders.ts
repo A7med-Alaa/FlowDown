@@ -2,6 +2,8 @@ import fs from "fs/promises";
 import path from "path";
 
 export interface IDownloader {
+    url: string;
+    filePath: string;
     download: () => Promise<string>;
 }
 
@@ -15,7 +17,9 @@ export class SeqDownloader implements IDownloader {
     }
 
     async download() {
-        console.log("Using browser mode");
+        console.log(
+            "Server doesn't support optimized mode, fallingback to browser mode.",
+        );
         return new Promise<string>(async (resolve, reject) => {
             console.time(`${path.basename(this.filePath)} downloaded in`);
             const response = await fetch(this.url);
@@ -103,9 +107,8 @@ export class ParDownloader implements IDownloader {
     }
 
     async download() {
-        console.log("Using optimized mode");
         return new Promise<string>(async (resolve, reject) => {
-            console.time(`${path.basename(this.filePath)} downloaded in:`);
+            console.time(`${path.basename(this.filePath)} downloaded in`);
             this.loadChunks();
 
             const fileHandle = await fs.open(this.filePath, "w");
@@ -150,7 +153,11 @@ export class ParDownloader implements IDownloader {
                         );
 
                         this.state.totalBytesWritten += bytesWritten;
-                        currentChunkByteWritten += bytesWritten
+                        currentChunkByteWritten += bytesWritten;
+                        const percentage: number = (this.state.totalBytesWritten / this.fileSize) * 100
+                        console.log(
+                            `${path.basename(this.filePath)}: ${this.state.totalBytesWritten}/${this.fileSize} (${percentage.toFixed(2)}%)`,
+                        );
                     } catch (e: any) {
                         reader.cancel();
                         reject(`Failed to download chunk ${i}. ${e.message}`);
@@ -175,7 +182,7 @@ export class ParDownloader implements IDownloader {
 
             fileHandle.close();
             resolve("File Downloaded Successfully");
-            console.timeEnd(`${path.basename(this.filePath)} downloaded in:`);
+            console.timeEnd(`${path.basename(this.filePath)} downloaded in`);
         });
     }
 }

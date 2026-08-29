@@ -1,6 +1,6 @@
-import { Engine } from "./engine.js";
-import readline from 'readline'
-import setup, { IConfig, defaultConfig } from "./setup.js";
+import { Engine } from "./Core/engine.js";
+import setup, { IConfig, defaultConfig } from "./Utilities/setup.js";
+import cmdHandler from "./Core/command-handler.js";
 
 let configs: IConfig = defaultConfig;
 
@@ -9,8 +9,8 @@ async function main() {
     configs = await setup.start();
 
     const engine = new Engine(configs);
-    // await engine.setNewDownloader("https://www.youtube.com/watch?v=6sYZHPeObfw");
-    // await engine.startDownloading();
-}
+    cmdHandler.start(engine);
+    cmdHandler.printAvailableCommands();
 
+}
 main();
